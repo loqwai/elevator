@@ -1,32 +1,41 @@
 {
-  wrap: function() {
-
-  },
   init: function(elevators, floors) {
     let hellevators = new Set()
+    User.prototype._pressFloorButton = User.prototype.pressFloorButton
+
+    User.prototype.pressFloorButton = function () {
+      console.log('user', this, arguments)
+      this.trigger('exited_elevator', this)
+      return this._pressFloorButton.apply(this, arguments)
+    }
 
     Movable.prototype.makeSureNotBusy = () => { }
     Elevator.prototype._userEntering = Elevator.prototype._userEntering ?? Elevator.prototype.userEntering
     Elevator.prototype.userEntering = function (user) {
-      console.log('userEntering', this)
-      // this.MAXSPEED = Infinity
-      // this.ACCELERATION = Infinity
-      // this.DECELERATION = Infinity
       hellevators.add(this)
-
       return this._userEntering(user)
     }
 
+    const queue = []
+    let lock = false
     const teleport = (floorNum) => {
-      const handleHellevator = (hellevator) => {
-        if (hellevator.isBusy()) {
-          return requestAnimationFrame(() => handleHellevator(hellevator))
-        }
-        hellevator.goToFloor(floorNum)
-        hellevator.y = hellevator.destinationY
-      }
+      if (floorNum !== undefined) queue.push(floorNum)
+      if (lock) return;
 
-      hellevators.forEach(handleHellevator)
+      lock = true
+      setTimeout(() => {
+        lock = false;
+        const destinationFloor = queue.shift()
+        if (destinationFloor === undefined) return;
+
+        hellevators.forEach(hellevator => {
+          hellevator.goToFloor(destinationFloor)
+          hellevator.y = hellevator.destinationY
+          hellevator.moveCount = 0
+        })
+
+        teleport()
+      }, 1)
     }
 
     floors.forEach(floor => {
